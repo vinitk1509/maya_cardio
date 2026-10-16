@@ -167,11 +167,13 @@ class BiosignalMockServer:
 
     def get_current_head_index(self) -> int:
         """Returns the current real-time sample index produced by the hardware clock."""
-        if not self.realtime or self.start_time == 0.0:
+        max_samples = self.duration * RATE
+        if not self.realtime:
+            return max_samples
+        if self.start_time == 0.0:
             return 0
         elapsed = time.monotonic() - self.start_time
         head = int(elapsed * RATE)
-        max_samples = self.duration * RATE
         return min(head, max_samples)
 
     def handle_read(self, sensor: int, from_index: Optional[int]) -> bytes:

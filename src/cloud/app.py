@@ -118,14 +118,7 @@ class CloudRequestHandler(BaseHTTPRequestHandler):
 
         s_ins, l_ins = self.storage.ingest_batch(samples, losses)
 
-        # Trigger quick online window processing if new samples arrived
-        if samples:
-            session_ids = {s["session_id"] for s in samples if "session_id" in s}
-            for sid in session_ids:
-                try:
-                    self.processor.process_available_windows(sid)
-                except Exception as e:
-                    logger.error(f"Error computing online windows for {sid}: {e}")
+        # Background processor worker handles online window computation asynchronously
 
         resp = {
             "status": "ok",

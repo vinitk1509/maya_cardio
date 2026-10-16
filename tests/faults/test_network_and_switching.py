@@ -23,8 +23,8 @@ class TestNetworkAndSwitching(unittest.TestCase):
         self.mock_port = 7185
         self.cloud_port = 8092
 
-        # Start mock server
-        self.mock = BiosignalMockServer(mode="ramp", seed=100, duration=30, port=self.mock_port, realtime=False)
+        # Start mock server (realtime=True to simulate real sensor pacing)
+        self.mock = BiosignalMockServer(mode="ramp", seed=100, duration=300, port=self.mock_port, realtime=True)
         import threading
         self.mock_thread = threading.Thread(target=self.mock.run_server, daemon=True)
         self.mock_thread.start()
@@ -103,15 +103,23 @@ class TestNetworkAndSwitching(unittest.TestCase):
         self.assertTrue(switched_online, f"Failed to switch to online within 10s (latency: {online_latency:.2f}s)")
 
         # Step 7: Wait for catch-up synchronization
+        # Catch-up must reduce backlog back to live streaming margin (<= 400 samples)
         t_catchup_start = time.monotonic()
+        caught_up = False
         while time.monotonic() - t_catchup_start < 10.0:
             st = self.pipeline.get_status()
-            if st.backlog == 0:
+            if st.backlog <= 400:
+                caught_up = True
                 break
             time.sleep(0.3)
+        self.assertTrue(caught_up, f"Catch-up failed to reduce backlog: {self.pipeline.get_status().backlog}")
+
+        # Stop collector and allow sync worker to drain final live batch to 0
+        self.pipeline.collector.stop()
+        time.sleep(0.8)
 
         final_status = self.pipeline.get_status()
-        self.assertEqual(final_status.backlog, 0, f"Expected backlog 0 after catch-up, got {final_status.backlog}")
+        self.assertEqual(final_status.backlog, 0, f"Expected backlog 0 after final flush, got {final_status.backlog}")
 
         # Step 8: Validate cloud export against ground truth
         session_id = self.pipeline.collector.current_session_id

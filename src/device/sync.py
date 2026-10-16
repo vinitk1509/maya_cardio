@@ -15,8 +15,8 @@ from src.device.storage import DeviceStorage
 logger = setup_logging("cloud-sync")
 
 LIVE_BATCH_SIZE = 400
-CATCHUP_BATCH_SIZE = 4000
-SYNC_TIMEOUT = 5.0
+CATCHUP_BATCH_SIZE = 10000
+SYNC_TIMEOUT = 10.0
 
 
 class CloudSyncWorker:
@@ -82,11 +82,7 @@ class CloudSyncWorker:
         if not self.is_online:
             return 0
 
-        # Check backlog size to adapt batch size (catch-up mode vs live stream)
-        total, synced, backlog = self.storage.get_counts()
-        batch_size = CATCHUP_BATCH_SIZE if backlog > LIVE_BATCH_SIZE * 2 else LIVE_BATCH_SIZE
-
-        unsynced_samples = self.storage.get_unsynced_samples(limit=batch_size)
+        unsynced_samples = self.storage.get_unsynced_samples(limit=CATCHUP_BATCH_SIZE)
         unsynced_losses = self.storage.get_unsynced_losses(limit=100)
 
         if not unsynced_samples and not unsynced_losses:

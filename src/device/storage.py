@@ -61,7 +61,7 @@ class DeviceStorage:
                 PRIMARY KEY (session_id, sensor, sample_index)
             );
             """)
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_samples_sync ON samples (session_id, synced, sensor, sample_index);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_samples_sync ON samples (synced, session_id, sensor, sample_index);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_samples_win ON samples (session_id, sensor, sample_index);")
 
             # Losses table
@@ -308,15 +308,25 @@ class DeviceStorage:
     def mark_samples_synced(self, keys: List[Tuple[str, int, int]]):
         """Mark samples as durably synchronized to the cloud.
         keys is list of (session_id, sensor, sample_index).
+        Uses range-based updates grouped by (session, sensor) for maximum throughput.
         """
         if not keys:
             return
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.executemany("""
-            UPDATE samples SET synced = 1
-            WHERE session_id = ? AND sensor = ? AND sample_index = ?
-            """, keys)
+            ranges: Dict[Tuple[str, int], Tuple[int, int]] = {}
+            for sess, sensor, idx in keys:
+                k = (sess, sensor)
+                if k not in ranges:
+                    ranges[k] = (idx, idx)
+                else:
+                    ranges[k] = (min(ranges[k][0], idx), max(ranges[k][1], idx))
+
+            for (sess, sensor), (min_i, max_i) in ranges.items():
+                cursor.execute("""
+                UPDATE samples SET synced = 1
+                WHERE session_id = ? AND sensor = ? AND sample_index >= ? AND sample_index <= ? AND synced = 0
+                """, (sess, sensor, min_i, max_i))
             conn.commit()
 
     def mark_losses_synced(self, loss_ids: List[int]):
