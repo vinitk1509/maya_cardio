@@ -261,6 +261,4 @@ python3 scripts/run_benchmark.py --duration 120 --mode signal --seed 7 --output 
 - [docs/ARCHITECTURE_DESIGN_NOTE.md](docs/ARCHITECTURE_DESIGN_NOTE.md): Deliverable 2: Architecture, guarantees, and power-cut bounds (max 2 pages)
 - [docs/FAILURE_TESTING_EVIDENCE.md](docs/FAILURE_TESTING_EVIDENCE.md): Deliverable 3: Genuine failure test evidence logs
 - [docs/RESOURCE_REPORT.md](docs/RESOURCE_REPORT.md): Deliverable 4: 1-hour resource utilization report
-- [docs/DEMO_VIDEO_PLAN.md](docs/DEMO_VIDEO_PLAN.md): Deliverable 5: 5-minute technical demonstration plan
 - [docs/AI_DISCLOSURE.md](docs/AI_DISCLOSURE.md): Deliverable 6: Truthful AI tool disclosure
-- [docs/INTERVIEW_PREPARATION.md](docs/INTERVIEW_PREPARATION.md): Comprehensive candidate interview defense guide
