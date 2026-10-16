@@ -1,0 +1,20 @@
+{
+  "duration_seconds": 120,
+  "environment": {
+    "platform": "win32",
+    "architecture": "win32",
+    "python_version": "3.12.6",
+    "cpu_count": 12,
+    "total_ram_gb": 11.78
+  },
+  "metrics": {
+    "average_cpu_percent": 38.27,
+    "peak_memory_mb": 82.53,
+    "disk_megabytes_written": 14.78,
+    "network_megabytes_sent": 7.81
+  },
+  "pipeline": {
+    "total_samples_saved": 98836,
+    "total_samples_synced": 98794
+  }
+}

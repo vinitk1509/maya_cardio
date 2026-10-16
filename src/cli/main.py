@@ -89,11 +89,42 @@ def cmd_results(args):
         results_url = f"{cloud_url}/api/v1/results?session={session_id}"
         try:
             req = urllib.request.Request(results_url, headers={"User-Agent": "MayaCardio-CLI"})
-            with urllib.request.urlopen(req, timeout=10.0) as resp:
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
                 for line in resp:
+                    results_found = True
                     sys.stdout.write(line.decode("utf-8"))
         except Exception as e:
-            sys.stderr.write(f"Notice: unable to query cloud results: {e}\n")
+            pass
+
+    # If still no results found, but samples exist locally on device, compute from stored samples
+    if not results_found:
+        from src.processing.engine import SignalProcessingEngine
+        engine = SignalProcessingEngine()
+        last_s1 = storage.get_last_stored_index(session_id, 1)
+        last_s2 = storage.get_last_stored_index(session_id, 2)
+        if last_s1 is not None and last_s2 is not None:
+            max_idx = min(last_s1, last_s2)
+            num_windows = max_idx // 400
+            for w in range(num_windows):
+                w_start = w * 400
+                w_end = w_start + 399
+                s1 = storage.get_window_samples(session_id, 1, w_start, w_end)
+                s2 = storage.get_window_samples(session_id, 2, w_start, w_end)
+                s1_hist = None
+                if w >= 4:
+                    hist_start = max(0, 400 * (w - 4) - 800)
+                    hist_end = 400 * (w + 1)
+                    s1_hist = storage.get_window_samples(session_id, 1, hist_start, hist_end)
+                res = engine.process_window(
+                    session_id=session_id,
+                    window=w,
+                    mode="offline",
+                    sensor1_samples=s1,
+                    sensor2_samples=s2,
+                    all_sensor1_history=s1_hist
+                )
+                storage.save_window_result(res)
+                sys.stdout.write(json.dumps(res.to_dict()) + "\n")
 
     sys.stdout.flush()
 

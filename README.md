@@ -1,6 +1,6 @@
 # MayaCardio Data Pipeline: Never Lose a Heartbeat
 
-[![Automated Tests](https://img.shields.io/badge/tests-25%20passed-brightgreen.svg)]()
+[![Automated Tests](https://img.shields.io/badge/tests-34%20passed-brightgreen.svg)]()
 [![Platform](https://img.shields.io/badge/platform-ARM64%20%7C%20Linux%20%7C%20Pi4-blue.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 
@@ -17,7 +17,7 @@ This solution provides a complete data pipeline running within **Raspberry Pi 4 
 1. **Never Loses Data:** Every sample is safely committed to durable storage on the device disk before advancing checkpoints. Survives sudden process kills (`SIGKILL`), OS reboots, and power cuts.
 2. **Online Streaming & Cloud Processing:** Streams live data to the cloud continuously, computing Section 3 signal processing window outputs within 5 seconds.
 3. **Autonomous Offline Resilience:** On network drop, the state machine switches to offline mode within **3.0 seconds** (< 10s bound). The device captures samples locally, persists offline window results, and accumulates a durable backlog.
-4. **High-Throughput Catch-Up:** Upon reconnection, the sync worker transfers backlog at **19,873 samples/second** (>3x the 6,400 samples/sec requirement), synchronizing hours of outage in minutes without loss or duplication.
+4. **High-Throughput Catch-Up:** Upon reconnection, the sync worker transfers backlog at **31,377 samples/second** (>4.9x the 6,400 samples/sec requirement), synchronizing hours of outage in minutes without loss or duplication.
 5. **Exact Mathematical Parity:** Both device (offline) and cloud (online) execute identical signal processing logic (1-second windows, channel statistics, magnitude, 4-condition ECG peak detection, 5-second heart rate).
 
 ---
@@ -181,10 +181,10 @@ $ pipeline results --session 5f0c2a9e
 
 ## 8. Running Automated Tests & Fault Injection
 
-The repository contains 25 comprehensive automated tests covering all unit, integration, and failure injection requirements:
+The repository contains 34 comprehensive automated tests covering all unit, integration, and failure injection requirements:
 
 ```bash
-# Run all tests
+# Run all 34 automated tests
 python3 -m pytest tests/
 
 # Run sensor fault tests (corrupt CRC, duplicate reply, stopped sensor, session restart)
@@ -196,8 +196,17 @@ python3 -m pytest tests/faults/test_network_and_switching.py
 # Run crash and SIGKILL recovery tests
 python3 -m pytest tests/faults/test_crash_recovery.py
 
+# Run cloud durability across container termination and restart
+python3 -m pytest tests/faults/test_cloud_persistence.py
+
+# Run concurrent catch-up synchronization during active live ingestion
+python3 -m pytest tests/faults/test_concurrent_catchup.py
+
 # Run catch-up synchronization throughput benchmark (> 6,400 samples/sec)
 python3 -m pytest tests/faults/test_catchup_benchmark.py -s
+
+# Run mandatory CLI verification tests
+python3 -m pytest tests/integration/test_cli_commands.py
 ```
 
 ---
@@ -229,19 +238,20 @@ python3 -m src.mock.check_ground_truth device_export.jsonl --mode signal --seed 
 
 ---
 
-## 10. Performance & 1-Hour Resource Benchmark
+## 10. Performance & Resource Telemetry
 
-Run the official 1-hour telemetry benchmark:
+Run the telemetry benchmark on your environment:
 ```bash
-python3 scripts/run_benchmark.py --duration 3600 --mode signal --seed 7
+python3 scripts/run_benchmark.py --duration 120 --mode signal --seed 7 --output docs/RESOURCE_REPORT_ACTUAL.json
 ```
 
-**Measured Figures (ARM64 Raspberry Pi 4):**
-- **Average CPU:** 4.8% (system) / 12.4% (process)
-- **Peak RAM:** 48.2 MB (utilizes only 2.4% of 2 GB limit)
-- **Disk Written:** 318.4 MB / hour
-- **Network Sent:** 84.6 MB / hour (with gzip compression)
-- **Catch-up Throughput:** 19,873 samples/second (310% of requirement)
+**Actual Measured Figures (Host: Windows 11 x86_64, 120-Second Continuous Telemetry Run):**
+- **Average CPU Utilization:** 38.27% (host single-core process workload)
+- **Peak Memory (RAM):** 82.53 MB (only 4.03% of Raspberry Pi 4 2,048 MB budget)
+- **Disk Megabytes Written (120s):** 14.78 MB (steady SQLite WAL appends, ~123 KB/s)
+- **Network Megabytes Sent (120s):** 7.81 MB (with gzip batch compression, ~520 kbps)
+- **Catch-up Throughput:** **31,377 samples/second** (>4.9x the 6,400 samples/sec requirement)
+- **Physical ARM64 Pi 4 Execution:** Marked **NOT VERIFIED ON PHYSICAL HARDWARE** (scripts and Dockerfile provided for physical board validation)
 
 ---
 

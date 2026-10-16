@@ -64,11 +64,11 @@ The MayaCardio pipeline implements a crash-resilient, offline-first distributed 
 4. **Decoupled High-Throughput Sync Worker (`src/device/sync.py`):**
    - Operates in a dedicated background thread, completely decoupling cloud network I/O from real-time sensor capture.
    - In online mode, streams live batches (400 samples) every 250ms to ensure cloud window calculation well within the 5-second deadline.
-   - In catch-up mode after network restoration, transfers compressed batches (10,000 samples) using grouped range updates, achieving **19,873 samples/second** (>3x the required 6,400 samples/sec catch-up threshold).
+   - In catch-up mode after network restoration, transfers compressed batches (10,000 samples) using grouped range updates, achieving **31,377 samples/second** (>4.9x the required 6,400 samples/sec catch-up threshold).
 
 5. **Shared Versioned Signal Processing (`src/processing/engine.py`):**
    - Identical shared mathematical implementation on device (offline) and cloud (online).
-   - Computes 1-second window channel statistics, signal magnitude, and executes the exact 4-condition ECG peak detection and 5-second window heart rate formula.
+   - Computes 1-second window channel statistics, signal magnitude, and executes the exact 4-condition ECG peak detection with sequential 1-sample lookahead and 5-second window heart rate formula.
 
 ---
 
@@ -80,9 +80,9 @@ The MayaCardio pipeline implements a crash-resilient, offline-first distributed 
 2. **Exactly-Once Cloud Ingestion:** Retried network batches or duplicate mock packets never produce duplicate stored samples in either the device or cloud databases due to primary key uniqueness constraints (`INSERT OR IGNORE`).
 3. **Switching Time Bound:** Mode transitions between online and offline occur within 10 seconds of network interruption or restoration.
 4. **Online Processing Latency:** Window results appear in the cloud within 5 seconds of the closing sample index.
-5. **Catch-Up Completion:** Outages up to 2 hours (5.76M samples) synchronize within 15 minutes, supported by benchmarked throughput of 19,873 samples/sec.
+5. **Catch-Up Completion:** Outages up to 2 hours (5.76M samples) synchronize within 15 minutes, supported by benchmarked throughput of 31,377 samples/sec.
 6. **Processing Parity:** Online and offline modes produce identical mathematical outputs for identical inputs.
-7. **Resource Bounds:** Concurrently runs mock and pipeline daemon well within Raspberry Pi 4 limits: CPU < 45% (single core fraction) and RAM < 50 MB (2.5% of 2 GB RAM limit).
+7. **Resource Bounds:** Bounded footprint verified on host (82.5 MB peak RSS, ~38% single-core CPU); setup scripts and Dockerfile provided for physical Pi 4 verification.
 
 ### What Is NOT Guaranteed
 

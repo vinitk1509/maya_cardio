@@ -23,11 +23,15 @@ class SignalProcessingEngine:
     def __init__(self):
         # Peak cache per session: session_id -> list of detected peak indices
         self._peak_cache: Dict[str, List[int]] = {}
+        # Highest sample index evaluated per session
+        self._highest_evaluated: Dict[str, int] = {}
 
     def reset_session(self, session_id: str):
         """Clear peak cache when a session ends or restarts."""
         if session_id in self._peak_cache:
             del self._peak_cache[session_id]
+        if session_id in self._highest_evaluated:
+            del self._highest_evaluated[session_id]
 
     def detect_peaks_for_range(
         self,
@@ -48,32 +52,26 @@ class SignalProcessingEngine:
         """
         if session_id not in self._peak_cache:
             self._peak_cache[session_id] = []
+            self._highest_evaluated[session_id] = -1
 
         cached_peaks = self._peak_cache[session_id]
 
-        # Determine where to start evaluation
-        # We need to evaluate sequentially from the earliest needed sample up to end_index
-        eval_start = start_index
-        if cached_peaks:
-            last_peak = cached_peaks[-1]
-            # Continue from after the last evaluated point
-            eval_start = max(start_index, last_peak + 1)
-        else:
-            last_peak = -1000  # sentinel allowing condition 4 for first peak
+        # Evaluate sequentially from the next un-evaluated sample index
+        eval_start = max(0, self._highest_evaluated[session_id] + 1)
 
         for i in range(eval_start, end_index + 1):
-            # Check availability of sample i itself
             if i not in sensor1_ch2_samples:
+                self._highest_evaluated[session_id] = i
                 continue
             val_i = sensor1_ch2_samples[i]
 
             # Condition 1: sample i+1 must be available
             if (i + 1) not in sensor1_ch2_samples:
-                continue
+                # Cannot determine peak at i without right neighbour; stop evaluation here
+                break
             val_next = sensor1_ch2_samples[i + 1]
 
             # Condition 1: 800 samples before i (i-800 to i-1) must be available
-            # Check availability of all 800 preceding samples
             all_800_available = True
             max_prev_800 = -float("inf")
             for prev_idx in range(i - 800, i):
@@ -83,6 +81,8 @@ class SignalProcessingEngine:
                 p_val = sensor1_ch2_samples[prev_idx]
                 if p_val > max_prev_800:
                     max_prev_800 = p_val
+
+            self._highest_evaluated[session_id] = i
 
             if not all_800_available:
                 continue

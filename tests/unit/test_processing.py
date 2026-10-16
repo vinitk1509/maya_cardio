@@ -135,6 +135,57 @@ class TestSignalProcessingEngine(unittest.TestCase):
         peaks3 = self.engine.detect_peaks_for_range("test_p2", 911, 1000, pool)
         self.assertNotIn(950, peaks3)
 
+    def test_lookahead_sample_boundary(self):
+        """A peak candidate at index i cannot be finalized until sample i+1 is available."""
+        # Only samples 0 through 850 exist (sample 851 is missing)
+        pool = {k: 50 for k in range(851)}
+        pool[850] = 200  # candidate peak
+        # Without sample 851, 850 cannot be confirmed as a peak
+        peaks = self.engine.detect_peaks_for_range("test_lh", 0, 850, pool)
+        self.assertNotIn(850, peaks)
+
+        # Now sample 851 arrives with smaller value 50
+        pool[851] = 50
+        peaks_after = self.engine.detect_peaks_for_range("test_lh", 0, 851, pool)
+        self.assertIn(850, peaks_after)
+
+    def test_session_reset_isolation(self):
+        """Resetting session clears peak state so Session A cannot contaminate Session B."""
+        pool = {k: 50 for k in range(1000)}
+        pool[850] = 300
+        pool[851] = 50
+        self.engine.detect_peaks_for_range("sess_A", 0, 851, pool)
+        self.assertIn(850, self.engine._peak_cache["sess_A"])
+
+        self.engine.reset_session("sess_A")
+        self.assertNotIn("sess_A", self.engine._peak_cache)
+
+    def test_continuous_multi_window_sequence(self):
+        """Process consecutive windows 4, 5, 6, 7 and verify heart rate continuity."""
+        gen = SignalGenerator(mode="signal", seed=7)
+        s1 = {}
+        s2 = {}
+        for i in range(3600):
+            s1[i] = gen.get_sample(1, i)
+            s2[i] = gen.get_sample(2, i)
+
+        rates = []
+        for w in range(4, 8):
+            res = self.engine.process_window(
+                session_id="continuous_seq",
+                window=w,
+                mode="offline",
+                sensor1_samples=s1,
+                sensor2_samples=s2,
+                all_sensor1_history=s1
+            )
+            self.assertIsNotNone(res.heart_rate, f"Window {w} should have non-null heart rate")
+            rates.append(res.heart_rate)
+
+        # All windows in minutes 0-2 should report heart rate near 60.0 bpm
+        for idx, hr in enumerate(rates):
+            self.assertAlmostEqual(hr, 60.0, delta=1.0, msg=f"Window {4+idx} HR {hr} deviates from 60 bpm")
+
 
 if __name__ == "__main__":
     unittest.main()
