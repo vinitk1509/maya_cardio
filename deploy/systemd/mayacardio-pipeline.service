@@ -1,0 +1,22 @@
+[Unit]
+Description=MayaCardio Biosignal Pipeline Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/maya_cardio
+ExecStart=/usr/bin/python3 /home/pi/maya_cardio/pipeline run --db /var/lib/mayacardio/device_data.db --cloud-url https://mayacardio-cloud.onrender.com
+Restart=always
+RestartSec=2
+KillMode=process
+StandardOutput=journal
+StandardError=journal
+LimitNOFILE=65536
+
+# Resource Constraints (Pi 4 limit: <= 4 cores, <= 2GB memory)
+CPUQuota=400%
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

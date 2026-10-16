@@ -1,0 +1,30 @@
+# ARM64 Dockerfile for Raspberry Pi 4 environment emulation
+# Target: Debian 12 Bookworm ARM64, Python 3.12, Resource limits: <= 4 cores, <= 2GB RAM
+FROM --platform=linux/arm64 python:3.12-slim-bookworm
+
+ENV PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    MAYACARDIO_DB=/data/device_data.db \
+    MAYACARDIO_CLOUD_URL=http://127.0.0.1:8080
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sqlite3 \
+    procps \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy dependency definition and source
+COPY pyproject.toml setup.py /app/
+COPY src /app/src
+COPY pipeline /app/pipeline
+RUN chmod +x /app/pipeline
+
+RUN pip install --no-cache-dir psutil pytest
+
+VOLUME ["/data"]
+
+EXPOSE 7100 8080
+
+CMD ["python", "pipeline", "run", "--db", "/data/device_data.db"]

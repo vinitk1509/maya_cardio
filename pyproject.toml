@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mayacardio-pipeline"
+version = "1.0.0"
+description = "Fault-tolerant medical device biosignal data pipeline"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "psutil>=5.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+pipeline = "src.cli.main:main"
+biosignal-mock = "src.mock.biosignal_mock:main"
+check-ground-truth = "src.mock.check_ground_truth:main"
